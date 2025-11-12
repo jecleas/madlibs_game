@@ -1,7 +1,6 @@
 import numpy as np
 from bs4 import BeautifulSoup
 import requests
-import re
 from urllib.parse import urljoin
 
 class wordlib():
@@ -53,28 +52,62 @@ mt_main_soup = BeautifulSoup(mt_main_content, 'html.parser')
 
 soup = mt_main_soup
 
-links = soup.find_all('a')
+# Target the section that actually contains the story links instead of scanning
+# every anchor on the page. The story list currently lives inside a card body
+# (`mdl-card__supporting-text`). Falling back to the whole document keeps the
+# scraper resilient if the page layout changes in the future.
+story_container = soup.select_one(
+    "div#storyList, div#stories_list, div.mdl-card__supporting-text"
+)
+if story_container is None:
+    story_container = soup
 
-##put the new links in a dictionary with the link and name of the thing and show the user 
+##put the new links in a dictionary with the link and name of the thing and show the user
 
 madLibs = {}
-pattern_name = r">([^<]+)<"
-pattern_link = r'href="([^"]*)"'
 
-#using iteration I found that the links start at 22
-for link in links[22:]:
-    strLink = str(link)    
-    if "Printable" in strLink or 'mG_none' in strLink:
+
+def is_story_link(anchor):
+    """Return True when an anchor represents a playable Mad Lib story."""
+
+    href = (anchor.get("href") or "").strip()
+    if not href:
+        return False
+
+    text = anchor.get_text(strip=True)
+    if not text:
+        return False
+
+    classes = " ".join(anchor.get("class", []))
+    href_lower = href.lower()
+
+    # Skip printable versions of the stories.
+    if "print" in href_lower or "print" in classes:
+        return False
+
+    # Mad Takes story links consistently contain one of these keywords in the
+    # href or the class list.
+    keyword_matches_href = any(
+        keyword in href_lower for keyword in ("/story/", "madlib", "libs/")
+    )
+    keyword_matches_class = any(
+        "story" in class_name.lower() for class_name in anchor.get("class", [])
+    )
+
+    return keyword_matches_href or keyword_matches_class
+
+
+for link in story_container.select("a[href]"):
+    if not is_story_link(link):
         continue
-    elif "Free" not in strLink:
+
+    matchName = link.get_text(strip=True)
+    matchLink = link.get("href", "")
+
+    if not matchName or not matchLink:
         continue
 
-    matchName = re.findall(pattern_name, strLink)[0]
-    matchLink = re.findall(pattern_link, strLink)[0]
-
-    ## I NEED A CONDITION HERE WHICH DOESN'T WRITE TO THE DICTIONARY IF THERE ARE EMPTIES - this needs to be added
-    ##
-    madLibs[matchName] = urljoin(base_url,matchLink)
+    madLibs[matchName] = urljoin(base_url, matchLink)
 
 ## let the user navigate through the CLI on which one they would like to choose
 
