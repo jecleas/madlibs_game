@@ -1,7 +1,6 @@
 import numpy as np
 from bs4 import BeautifulSoup
 import requests
-import re
 from urllib.parse import urljoin
 
 class wordlib():
@@ -58,23 +57,22 @@ links = soup.find_all('a')
 ##put the new links in a dictionary with the link and name of the thing and show the user 
 
 madLibs = {}
-pattern_name = r">([^<]+)<"
-pattern_link = r'href="([^"]*)"'
 
 #using iteration I found that the links start at 22
 for link in links[22:]:
-    strLink = str(link)    
+    strLink = str(link)
     if "Printable" in strLink or 'mG_none' in strLink:
         continue
     elif "Free" not in strLink:
         continue
 
-    matchName = re.findall(pattern_name, strLink)[0]
-    matchLink = re.findall(pattern_link, strLink)[0]
+    link_text = link.get_text(strip=True)
+    link_href = link.get('href')
 
-    ## I NEED A CONDITION HERE WHICH DOESN'T WRITE TO THE DICTIONARY IF THERE ARE EMPTIES - this needs to be added
-    ##
-    madLibs[matchName] = urljoin(base_url,matchLink)
+    if not link_text or not link_href:
+        continue
+
+    madLibs[link_text] = urljoin(base_url, link_href)
 
 ## let the user navigate through the CLI on which one they would like to choose
 
